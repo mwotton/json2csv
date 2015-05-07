@@ -18,6 +18,7 @@ cabal-version:       >=1.10
 library
   hs-source-dirs: src
   exposed-modules: Text.Json2CSV
+  ghc-options: -Wall -Werror
   -- other-modules:
   -- other-extensions:
   build-depends:       base >=4.7 && <4.8
@@ -33,4 +34,5 @@ library
 executable json2csv
   main-is: json2csv.hs
   hs-source-dirs: exec
+  ghc-options: -Wall -Werror
   build-depends: base, json2csv, aeson,bytestring, text

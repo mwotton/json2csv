@@ -15,10 +15,11 @@ instance Show CVal where
   show (CStr s) = show s
   show (CNumber s) = show s
 
-json2CSV v = go v []
+json2CSV :: Value -> [(Text, CVal)]
+json2CSV z = go z []
   where
     go (Object o) p   = concatMap (\(k, v) -> go v (k:p)) $ HM.toList o
-    go (Array a) p    = concat $ zipWith (\i v -> go v ((tshow i):p))  [0..] $ V.toList a
+    go (Array a) p    = concat $ zipWith (\i v -> go v ((tshow i):p))  [(0::Int)..] $ V.toList a
     go (String s) p   = [(mkPath p, CStr s)]
     go (Number n) p   = [(mkPath p, CNumber n)]
     go (Bool True) p  = [(mkPath p, CStr "yes")] -- the stupid, it burns.
