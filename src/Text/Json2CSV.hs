@@ -12,7 +12,7 @@ data CVal = CStr Text
           | CNumber Scientific
 
 instance Show CVal where
-  show (CStr s) = T.unpack s
+  show (CStr s) = show s
   show (CNumber s) = show s
 
 json2CSV v = go v []
