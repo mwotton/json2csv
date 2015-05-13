@@ -3,6 +3,7 @@ module Text.Json2CSV where
 
 import           Data.Aeson
 import qualified Data.HashMap.Strict as HM
+import           Data.Monoid         ((<>))
 import           Data.Scientific
 import           Data.Text           (Text)
 import qualified Data.Text           as T
@@ -12,7 +13,9 @@ data CVal = CStr Text
           | CNumber Scientific
 
 instance Show CVal where
-  show (CStr s) = show s
+  show (CStr s) = T.unpack (("\""::Text) <>
+                            T.replace "\"" "\"\"" s
+                            <> "\"")
   show (CNumber s) = show s
 
 json2CSV :: Value -> [(Text, CVal)]
