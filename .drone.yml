@@ -1,0 +1,30 @@
+image: mwotton/meanpath-build-halcyon
+cache:
+  - /root/.cabal
+  - /var/tmp/halcyon-cache
+
+script:
+ # - export PATH=/opt/ghc/7.8.2/bin:/opt/cabal/1.20/bin/:$PATH
+  - eval "$( /app/halcyon/halcyon paths )"
+  - cabal update
+  - export LC_ALL=en_US.UTF-8
+  - export LANG=en_US.utf-8
+  - /app/halcyon/halcyon build --sandbox-extra-configure-flags=--enable-tests  --cabal-version=1.22.4.0 --sandbox-extra-apps="alex happy"
+  - /app/halcyon/halcyon paths > halcyon-env
+  - ln -sf /app/sandbox/cabal.sandbox.config cabal.sandbox.config
+  - source halcyon-env && cabal configure --enable-tests && cabal test
+#   - LANG=en_US.utf-8 cabal install --only-dependencies --enable-tests
+ # - cabal configure --enable-tests
+ # - cabal test
+
+notify:
+  email:
+    recipients:
+      - mwotton@gmail.com
+  slack:
+    webhook_url: 'https://hooks.slack.com/services/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'
+    username: 'drone'
+    channel: '#dev'
+    on_started: false
+    on_success: true
+    on_failure: true
