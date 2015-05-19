@@ -14,10 +14,13 @@ data CVal = CStr Text
           | CNumber Scientific
   deriving Eq
 
+mAXFIELDLENGTH :: Int
+mAXFIELDLENGTH=1000
+
 instance Show CVal where
   show (CStr s) = T.unpack ( -- ("\""::Text) <>
                             T.replace "\\\"" "\"\""
-                            (T.pack $ show s)
+                            (T.pack $ show $ T.take mAXFIELDLENGTH s)
 --                             <> "\""
                             )
   show (CNumber s) = show s
