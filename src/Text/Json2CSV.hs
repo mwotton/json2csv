@@ -3,7 +3,8 @@ module Text.Json2CSV where
 
 import           Data.Aeson
 import qualified Data.HashMap.Strict as HM
-import           Data.Monoid         ((<>))
+import           Data.List           (nub)
+-- import           Data.Monoid         ((<>))
 import           Data.Scientific
 import           Data.Text           (Text)
 import qualified Data.Text           as T
@@ -11,12 +12,21 @@ import qualified Data.Vector         as V
 
 data CVal = CStr Text
           | CNumber Scientific
+  deriving Eq
 
 instance Show CVal where
-  show (CStr s) = T.unpack (("\""::Text) <>
-                            T.replace "\"" "\"\"" s
-                            <> "\"")
+  show (CStr s) = T.unpack ( -- ("\""::Text) <>
+                            T.replace "\\\"" "\"\""
+                            (T.pack $ show s)
+--                             <> "\""
+                            )
   show (CNumber s) = show s
+
+formatLine :: [T.Text] -> [(T.Text,CVal)] -> T.Text
+formatLine headers t = T.intercalate "," $  (map  (\h -> maybe "" tshow $ lookup h t) headers)
+
+getHeaders :: [[(T.Text,CVal)]] -> [T.Text]
+getHeaders allRows = nub $ concat $ map (map fst) allRows
 
 json2CSV :: Value -> [(Text, CVal)]
 json2CSV z = go z []
