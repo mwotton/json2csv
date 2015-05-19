@@ -2,7 +2,6 @@
 {-# LANGUAGE QuasiQuotes       #-}
 module Text.Json2CSVSpec where
 import           Data.Aeson.QQ
-import qualified Data.Text.IO  as TIO
 import           Test.Hspec
 import           Text.Json2CSV
 
