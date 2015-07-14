@@ -18,6 +18,6 @@ spec = describe "json2csv" $ do
                       }
                  }
                         |]
-        res = json2CSV input
+        res = json2CSV defaults input
         final = formatLine (getHeaders [res]) res
     final `shouldBe` "\"\\\\u003cscript type=\"\"text/javascript\"\"\\\\u003e\\r\\n\\r\\n  var _gaq = _gaq || [];\\r\\n  _gaq.push(['_setAccount', 'UA-37952915-1']);\\r\\n  _gaq.push(['_trackPageview']);\\r\\n\\r\\n  (function() {\\r\\n    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.as\""

@@ -15,7 +15,7 @@ main :: IO ()
 main = do
   (_bad,(good::[Value])) <- partitionEithers <$>
                            (mapM (\x -> eitherDecode <$> BL.readFile x) =<< getArgs)
-  let allRows = map json2CSV good
+  let allRows = map (json2CSV defaults) good
       headers = getHeaders allRows
   TIO.putStrLn $ T.intercalate "," headers
   (`mapM_` allRows) (TIO.putStrLn . formatLine headers)
