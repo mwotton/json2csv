@@ -2,13 +2,11 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Main where
 
-import           Control.Applicative  ((<$>))
 import           Control.Monad        (filterM)
 import           Data.Aeson
 import qualified Data.ByteString.Lazy as BL
 import           Data.Either          (partitionEithers)
 import           Data.Monoid          ((<>))
-import           Data.Monoid          (Monoid)
 import           Data.String          (IsString)
 import qualified Data.Text            as T
 import qualified Data.Text.IO         as TIO
