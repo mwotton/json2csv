@@ -10,6 +10,9 @@ main = hspec spec
 
 spec :: Spec
 spec = describe "json2csv" $ do
+  it "shows cvals" $ do
+    show (CStr "foo") `shouldBe` "\"foo\""
+
   it "handles embedded quotes sanely" $ do
     let input = [aesonQQ|
                  {

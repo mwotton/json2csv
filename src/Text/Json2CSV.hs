@@ -19,28 +19,41 @@ mAXFIELDLENGTH=1000
 
 instance Show CVal where
   show (CStr s) = T.unpack ( -- ("\""::Text) <>
-                            T.replace "\\\"" "\"\""
+
+                            unquotify
                             (T.pack $ show $ T.take mAXFIELDLENGTH s)
 --                             <> "\""
                             )
   show (CNumber s) = show s
 
-formatLine :: [T.Text] -> [(T.Text,CVal)] -> T.Text
-formatLine headers t = T.intercalate "," $  (map  (\h -> maybe "" tshow $ lookup h t) headers)
+
+-- This is qutie incredibly horrible -
+
+unquotify :: Text -> Text
+unquotify = until (not . ("\\\"" `T.isInfixOf`))  (T.replace "\\\"" "\"\"")
+--flattenValues :: (Show a, Eq a1) => [a1] -> [(a1, a)] -> [Text]
+--flattenValues headers t =  (map  (\h -> maybe "" tshow $ lookup h t)
+  --headers)
+
+flattenValues :: (Show a, Eq a1) => [a1] -> [(a1, a)] -> [Text]
+flattenValues headers t =  (map  (\h -> maybe "" tshow $ lookup h t) headers)
 
 getHeaders :: [[(T.Text,CVal)]] -> [T.Text]
 getHeaders allRows = nub $ concat $ map (map fst) allRows
 
+formatLine :: [T.Text] -> [(T.Text,CVal)] -> T.Text
+formatLine headers t = T.intercalate "," $ flattenValues headers t
 
 data Defaults = Defaults {
   nullValue       :: Text,
   yesValue        :: Text,
   noValue         :: Text,
-  concatCharacter :: Text
+  concatCharacter :: Text,
+  collapsible     :: Bool
 }
 
 defaults :: Defaults
-defaults = Defaults "" "yes" "no" "|"
+defaults = Defaults "" "yes" "no" "|" True
 
 json2CSV :: Defaults -> Value -> [(Text, CVal)]
 json2CSV config z = go z []
@@ -65,10 +78,12 @@ tshow :: Show a => a -> Text
 tshow = T.pack . show
 
 leaf :: Defaults -> Value -> Maybe Text
-leaf config s = case s of
-  String str -> Just str
-  Number n   -> Just $ tshow n
-  Bool True   -> Just $ yesValue config
-  Bool False  -> Just $ noValue config
-  Null -> Just $ nullValue config
-  _ -> Nothing
+leaf config s
+  | collapsible config = case s of
+    String str -> Just str
+    Number n   -> Just $ tshow n
+    Bool True   -> Just $ yesValue config
+    Bool False  -> Just $ noValue config
+    Null -> Just $ nullValue config
+    _ -> Nothing
+  | otherwise = Nothing
