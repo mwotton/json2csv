@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE LambdaCase #-}
 module Text.Json2CSV where
 
 import           Data.Aeson
@@ -9,40 +10,49 @@ import           Data.Scientific
 import           Data.Text           (Text)
 import qualified Data.Text           as T
 import qualified Data.Vector         as V
+import qualified Data.Csv as CSV
+import Data.Maybe(fromMaybe)
 
 data CVal = CStr Text
           | CNumber Scientific
   deriving Eq
+instance CSV.ToField CVal where
+  toField = \case
+    CStr t -> CSV.toField t
+    CNumber s -> CSV.toField s
+
+newtype Row = Row [CVal]
+
+instance CSV.ToRecord Row where
+  toRecord (Row cvals) = CSV.record $ map CSV.toField cvals
 
 mAXFIELDLENGTH :: Int
 mAXFIELDLENGTH=1000
 
-instance Show CVal where
-  show (CStr s) = T.unpack ( -- ("\""::Text) <>
+-- instance Show CVal where
+--   show (CStr s) = T.unpack ( -- ("\""::Text) <>
 
-                            unquotify
-                            (T.pack $ show $ T.take mAXFIELDLENGTH s)
---                             <> "\""
-                            )
-  show (CNumber s) = show s
+--                             unquotify
+--                             (T.pack $ show $ T.take mAXFIELDLENGTH s)
+-- --                             <> "\""
+--                             )
+--   show (CNumber s) = show s
 
 
 -- This is qutie incredibly horrible -
 
-unquotify :: Text -> Text
-unquotify = until (not . ("\\\"" `T.isInfixOf`))  (T.replace "\\\"" "\"\"")
+-- unquotify :: Text -> Text
+-- unquotify = until (not . ("\\\"" `T.isInfixOf`))  (T.replace "\\\"" "\"\"")
 --flattenValues :: (Show a, Eq a1) => [a1] -> [(a1, a)] -> [Text]
 --flattenValues headers t =  (map  (\h -> maybe "" tshow $ lookup h t)
   --headers)
-
-flattenValues :: (Show a, Eq a1) => [a1] -> [(a1, a)] -> [Text]
-flattenValues headers t =  (map  (\h -> maybe "" tshow $ lookup h t) headers)
+flattenValues :: [T.Text] -> [(T.Text,CVal)] -> Row
+flattenValues headers t =  Row (map  (\h -> fromMaybe (CStr "")  $ lookup h t) headers)
 
 getHeaders :: [[(T.Text,CVal)]] -> [T.Text]
 getHeaders allRows = nub $ concat $ map (map fst) allRows
 
-formatLine :: [T.Text] -> [(T.Text,CVal)] -> T.Text
-formatLine headers t = T.intercalate "," $ flattenValues headers t
+
 
 data Defaults = Defaults {
   nullValue       :: Text,
