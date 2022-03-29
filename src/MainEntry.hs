@@ -17,7 +17,7 @@ import           System.Directory
 import           System.Environment         (getArgs, getEnvironment)
 import           Text.Json2CSV
 import qualified Data.Csv as CSV
-import System.IO(hClose,hPutStr)
+import System.IO(hClose)
 import System.IO.Temp(withSystemTempFile)
 
 makeRelative :: (Monoid m, IsString m) => m -> m -> m
@@ -49,7 +49,7 @@ main = do
   withSystemTempFile "json2csv.json" $ \fp handle -> do
     filepaths <- case args of
       [] -> do
-        hPutStr handle =<< getContents
+        BL.hPutStr handle =<< BL.getContents
         hClose handle
         pure [fp]
       xs -> do
