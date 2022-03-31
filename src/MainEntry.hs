@@ -17,7 +17,7 @@ import           System.Directory
 import           System.Environment         (getArgs, getEnvironment)
 import           Text.Json2CSV
 import qualified Data.Csv as CSV
-import System.IO(hClose)
+import System.IO(hClose,utf8,hSetEncoding,stdin)
 import System.IO.Temp(withSystemTempFile)
 
 makeRelative :: (Monoid m, IsString m) => m -> m -> m
@@ -49,6 +49,8 @@ main = do
   withSystemTempFile "json2csv.json" $ \fp handle -> do
     filepaths <- case args of
       [] -> do
+        hSetEncoding stdin utf8
+        hSetEncoding handle utf8
         BL.hPutStr handle =<< BL.getContents
         hClose handle
         pure [fp]
