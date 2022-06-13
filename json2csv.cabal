@@ -22,7 +22,7 @@ library
   -- other-modules:
   -- other-extensions:
   build-depends:       base >=4.7
-                     , aeson
+                     , aeson >= 2.0.0.0
                      , bytestring
                      , cassava
                      , directory

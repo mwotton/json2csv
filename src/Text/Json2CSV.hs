@@ -3,7 +3,10 @@
 module Text.Json2CSV where
 
 import           Data.Aeson
-import qualified Data.HashMap.Strict as HM
+import qualified Data.Aeson.KeyMap as KM
+import qualified Data.Aeson.Key as K
+
+--import qualified Data.HashMap.Strict as HM
 import           Data.List           (nub)
 -- import           Data.Monoid         ((<>))
 import           Data.Scientific
@@ -29,23 +32,6 @@ instance CSV.ToRecord Row where
 mAXFIELDLENGTH :: Int
 mAXFIELDLENGTH=1000
 
--- instance Show CVal where
---   show (CStr s) = T.unpack ( -- ("\""::Text) <>
-
---                             unquotify
---                             (T.pack $ show $ T.take mAXFIELDLENGTH s)
--- --                             <> "\""
---                             )
---   show (CNumber s) = show s
-
-
--- This is qutie incredibly horrible -
-
--- unquotify :: Text -> Text
--- unquotify = until (not . ("\\\"" `T.isInfixOf`))  (T.replace "\\\"" "\"\"")
---flattenValues :: (Show a, Eq a1) => [a1] -> [(a1, a)] -> [Text]
---flattenValues headers t =  (map  (\h -> maybe "" tshow $ lookup h t)
-  --headers)
 flattenValues :: [T.Text] -> [(T.Text,CVal)] -> Row
 flattenValues headers t =  Row (map  (\h -> fromMaybe (CStr "")  $ lookup h t) headers)
 
@@ -68,7 +54,7 @@ defaults = Defaults "" "yes" "no" "|" True
 json2CSV :: Defaults -> Value -> [(Text, CVal)]
 json2CSV config z = go z []
   where
-    go (Object o) p   = concatMap (\(k, v) -> go v (k:p)) $ HM.toList o
+    go (Object o) p   = concatMap (\(k, v) -> go v (K.toText k:p)) $ KM.toList o
     go (Array a) p    = case mapM (leaf config) (V.toList a) of
       -- if we're at the final level, we can collapse with
       Just x ->         [(mkPath p, CStr (T.intercalate (concatCharacter config) x))]
@@ -81,8 +67,7 @@ json2CSV config z = go z []
     go Null p         = [(mkPath p, CStr (nullValue config))] -- the stupid, it burns.
 
 
-
-    mkPath = T.intercalate "." . reverse
+    mkPath = T.intercalate "."  . reverse
 
 tshow :: Show a => a -> Text
 tshow = T.pack . show
