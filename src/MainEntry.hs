@@ -18,4 +18,4 @@ main = do
   shouldExpand <- isJust . lookup "EXPAND" <$> getEnvironment
 
   output <- runConversion Config{..} args
-  BL.putStr $ BL.unlines output
+  BL.putStr output

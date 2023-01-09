@@ -119,7 +119,7 @@ immediateDescendents fp = do
         then filterM doesFileExist . map (makeRelative fp) =<< getDirectoryContents fp
         else return []
 
-runConversion :: Config -> [FilePath] -> IO [BL.ByteString]
+runConversion :: Config -> [FilePath] -> IO BL.ByteString
 runConversion Config{..} args = do
 
   -- consistentJSON <- isJust . lookup "CONSISTENT_JSON" <$> getEnvironment
@@ -144,10 +144,10 @@ runConversion Config{..} args = do
 
     allRows <- readJSONObjects justLines shouldExpand filepaths
     let headerRow = if printHeaders
-          then [BL.fromStrict $ encodeUtf8 $ T.intercalate "," headers] :: [BL.ByteString]
-          else []
+          then (BL.fromStrict $ encodeUtf8 $ T.intercalate "," headers <> "\n")
+          else ""
 
-    pure $ headerRow <> [CSV.encode (map (flattenValues headers) allRows :: [Row])]
+    pure $ headerRow <> CSV.encode (map (flattenValues headers) allRows :: [Row])
 
 
 
