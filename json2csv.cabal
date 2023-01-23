@@ -50,9 +50,13 @@ test-suite tests
   other-modules: Text.Json2CSVSpec
   build-depends: base
                , base-prelude
-               , json2csv
-               , hspec
+
                , aeson-qq
-               , text
-               , cassava
                , bytestring
+               , cassava
+               , deepseq
+               , directory
+               , hspec
+               , json2csv
+               , text
+               , vector

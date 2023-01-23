@@ -11,7 +11,7 @@ import Data.Text.Encoding(encodeUtf8)
 import           Data.Aeson
 import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Aeson.Key as K
-
+import Debug.Trace
 --import qualified Data.HashMap.Strict as HM
 import           Data.List           (nub)
 import qualified Data.ByteString.Lazy.Char8 as BL
@@ -23,7 +23,7 @@ import qualified Data.Vector         as V
 -- import qualified Data.Csv as CSV
 import Data.Maybe(fromMaybe)
 import           Data.String                (IsString)
-import System.IO(hClose,utf8,hSetEncoding,stdin)
+import System.IO(hClose,utf8,hSetEncoding)
 import qualified Data.Csv as CSV
 import System.IO.Temp(withSystemTempFile)
 import           Data.Either                (partitionEithers)
@@ -119,35 +119,42 @@ immediateDescendents fp = do
         then filterM doesFileExist . map (makeRelative fp) =<< getDirectoryContents fp
         else return []
 
-runConversion :: Config -> [FilePath] -> IO BL.ByteString
+runConversion :: Config -> (Either BL.ByteString [FilePath]) -> IO BL.ByteString
 runConversion Config{..} args = do
 
   -- consistentJSON <- isJust . lookup "CONSISTENT_JSON" <$> getEnvironment
   -- if we are reading stdin, just copy it to a temporary file
-  -- | Two separate modes
-  --   If there are arguments passed, we process all of them.
-  --   If there are no arguments, we assume we are just reading from stdin.
-  withSystemTempFile "json2csv.json" $ \fp handle -> do
-    filepaths <- case args of
-      [] -> do
-        hSetEncoding stdin utf8
+  --
+  --   the continuation structure is so that we only open a temporary file
+  --   when we need it, but also to guarantee the file is around the whole time
+  --   it is needed.
+
+  case args of
+    Left input -> do
+      withSystemTempFile "json2csv.json" $ \fp handle -> do
+        -- hSetEncoding stdin utf8
         hSetEncoding handle utf8
-        BL.hPutStr handle =<< BL.getContents
+        BL.hPutStr handle input
         hClose handle
-        pure [fp]
-      xs -> do
-        hClose handle
-        concat <$> mapM immediateDescendents xs
+        continue [fp]
+    Right xs -> do
+      continue . concat =<< mapM immediateDescendents xs
 
-    -- this looks weird, but it lets us read the same file in lazily twice.
-    headers <- getHeaders <$> readJSONObjects justLines shouldExpand filepaths
+  where
+    continue :: [FilePath] -> IO BL.ByteString
+    continue filepaths = do
+      traceM . show $ ("filepaths"::Text, filepaths)
+      -- this looks weird, but it lets us read the same file in lazily twice.
+      headers <- getHeaders <$> readJSONObjects justLines shouldExpand filepaths
 
-    allRows <- readJSONObjects justLines shouldExpand filepaths
-    let headerRow = if printHeaders
-          then (BL.fromStrict $ encodeUtf8 $ T.intercalate "," headers <> "\n")
-          else ""
+      allRows <- readJSONObjects justLines shouldExpand filepaths
+      let headerRow = if printHeaders
+            then (BL.fromStrict $ encodeUtf8 $ T.intercalate "," headers <> "\n")
+            else ""
 
-    pure $ headerRow <> CSV.encode (map (flattenValues headers) allRows :: [Row])
+      pure $ headerRow <>
+        CSV.encode
+        (map (flattenValues headers) allRows :: [Row])
 
 
 
