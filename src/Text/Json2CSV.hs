@@ -7,7 +7,6 @@ module Text.Json2CSV where
 
 
 import           System.Directory
-import Data.Text.Encoding(encodeUtf8)
 import           Data.Aeson
 import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Aeson.Key as K
@@ -119,7 +118,7 @@ immediateDescendents fp = do
         then filterM doesFileExist . map (makeRelative fp) =<< getDirectoryContents fp
         else return []
 
-runConversion :: Config -> (Either BL.ByteString [FilePath]) -> IO BL.ByteString
+runConversion :: Config -> (Either BL.ByteString [FilePath]) -> IO [BL.ByteString]
 runConversion Config{..} args = do
 
   -- consistentJSON <- isJust . lookup "CONSISTENT_JSON" <$> getEnvironment
@@ -141,20 +140,19 @@ runConversion Config{..} args = do
       continue . concat =<< mapM immediateDescendents xs
 
   where
-    continue :: [FilePath] -> IO BL.ByteString
+    continue :: [FilePath] -> IO [BL.ByteString]
     continue filepaths = do
       traceM . show $ ("filepaths"::Text, filepaths)
       -- this looks weird, but it lets us read the same file in lazily twice.
       headers <- getHeaders <$> readJSONObjects justLines shouldExpand filepaths
 
       allRows <- readJSONObjects justLines shouldExpand filepaths
-      let headerRow = if printHeaders
-            then (BL.fromStrict $ encodeUtf8 $ T.intercalate "," headers <> "\n")
-            else ""
+--      let headerRow = if printHeaders
+--            then (BL.fromStrict $ encodeUtf8 $ T.intercalate "," headers <> "\n")
+--            else ""
 
-      pure $ headerRow <>
-        CSV.encode
-        (map (flattenValues headers) allRows :: [Row])
+      pure $ CSV.encode [headers]:
+        (map (CSV.encode . (\x -> [x]) . flattenValues headers) allRows )
 
 
 

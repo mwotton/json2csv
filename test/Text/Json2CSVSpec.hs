@@ -40,7 +40,7 @@ spec = describe "json2csv" $ do
           , printHeaders = True
           , shouldExpand = False
           }
-    csv <- runConversion config $ Right ["./fixtures/sample.jl"]
+    csv <- BL.unlines <$> runConversion config (Right ["./fixtures/sample.jl"])
     BL.putStr csv
     let decoded :: Vector [String] = either error id $ CSV.decode CSV.HasHeader csv
     mapM_ print decoded
@@ -61,7 +61,7 @@ spec = describe "json2csv" $ do
               , shouldExpand = False
               }
       print files
-      csv <- runConversion config $ Right $ map (base <>) files
+      csv <- BL.unlines <$> runConversion config (Right $ map (base <>) files)
       print csv
       BL.writeFile "/tmp/output" csv
       pure files
