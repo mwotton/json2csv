@@ -26,4 +26,4 @@ main = do
     _ -> pure $ Right cmdlineArgs
 
   output <- runConversion Config{..} args
-  BL8.putStr $ BL8.unlines output
+  BL8.putStr output

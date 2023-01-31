@@ -27,10 +27,16 @@ library
                      , cassava
                      , directory
                      , scientific
+                     , streaming-cassava
                      , text
                      , unordered-containers
                      , vector
-                     , temporary
+                     , temporary-resourcet
+                     , resourcet
+                     , streaming-bytestring
+                     , streaming
+                     , parallel
+
 
   -- hs-source-dirs:
   default-language:    Haskell2010
@@ -60,3 +66,5 @@ test-suite tests
                , json2csv
                , text
                , vector
+               , streaming-bytestring
+               , resourcet

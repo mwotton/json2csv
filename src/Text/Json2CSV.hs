@@ -5,29 +5,31 @@
 
 module Text.Json2CSV where
 
-
+import Data.Text.Encoding(encodeUtf8)
 import           System.Directory
 import           Data.Aeson
 import qualified Data.Aeson.KeyMap as KM
 import qualified Data.Aeson.Key as K
-import Debug.Trace
---import qualified Data.HashMap.Strict as HM
-import           Data.List           (nub)
 import qualified Data.ByteString.Lazy.Char8 as BL
--- import           Data.Monoid         ((<>))
 import           Data.Scientific
 import           Data.Text           (Text)
 import qualified Data.Text           as T
 import qualified Data.Vector         as V
--- import qualified Data.Csv as CSV
 import Data.Maybe(fromMaybe)
 import           Data.String                (IsString)
 import System.IO(hClose,utf8,hSetEncoding)
 import qualified Data.Csv as CSV
-import System.IO.Temp(withSystemTempFile)
+import System.IO.Temp(openTempFile)
 import           Data.Either                (partitionEithers)
+import           Control.Monad              (filterM,forM_)
+import qualified Streaming.Cassava as SCSV
+import Control.Monad.Trans.Resource(runResourceT,MonadResource)
+import Control.Monad.IO.Class(liftIO,MonadIO)
+import qualified Streaming.ByteString as Q
+import qualified Streaming.Prelude as SP
+import qualified Data.HashSet as HS
+import Control.Parallel.Strategies
 
-import           Control.Monad              (filterM)
 
 data Config = Config
   { justLines :: Bool
@@ -51,11 +53,11 @@ instance CSV.ToRecord Row where
 mAXFIELDLENGTH :: Int
 mAXFIELDLENGTH=1000
 
-flattenValues :: [T.Text] -> [(T.Text,CVal)] -> Row
-flattenValues headers t =  Row (map  (\h -> fromMaybe (CStr "")  $ lookup h t) headers)
+flattenValues :: [T.Text] -> V.Vector (T.Text,CVal) -> Row
+flattenValues headers t =  Row (map  (\h -> fromMaybe (CStr "")  $ fmap snd $ V.find ((==h) . fst) t) headers)
 
-getHeaders :: [[(T.Text,CVal)]] -> [T.Text]
-getHeaders allRows = nub $ concat $ map (map fst) allRows
+getHeaders :: [V.Vector (T.Text,CVal)] -> [T.Text]
+getHeaders allRows = HS.toList $ HS.unions $ fmap (HS.fromList . V.toList . fmap fst) allRows
 
 
 
@@ -70,8 +72,8 @@ data Defaults = Defaults {
 defaults :: Defaults
 defaults = Defaults "" "yes" "no" "|" True
 
-json2CSV :: Defaults -> Value -> [(Text, CVal)]
-json2CSV config z = go z []
+json2CSV :: Defaults -> Value -> V.Vector (Text, CVal)
+json2CSV config z = V.fromList $ go z []
   where
     go (Object o) p   = concatMap (\(k, v) -> go v (K.toText k:p)) $ KM.toList o
     go (Array a) p    = case mapM (leaf config) (V.toList a) of
@@ -118,8 +120,13 @@ immediateDescendents fp = do
         then filterM doesFileExist . map (makeRelative fp) =<< getDirectoryContents fp
         else return []
 
-runConversion :: Config -> (Either BL.ByteString [FilePath]) -> IO [BL.ByteString]
-runConversion Config{..} args = do
+-- Collect the streaming interface into a big lazy list of bytestrings, throwing away
+-- any space safety.
+runConversion :: Config -> (Either BL.ByteString [FilePath]) -> IO BL.ByteString
+runConversion c args = runResourceT $ Q.toLazy_ $ runConversionStreaming c args
+
+runConversionStreaming :: MonadResource m => Config -> (Either BL.ByteString [FilePath]) -> Q.ByteStream m ()
+runConversionStreaming Config{..} args = do
 
   -- consistentJSON <- isJust . lookup "CONSISTENT_JSON" <$> getEnvironment
   -- if we are reading stdin, just copy it to a temporary file
@@ -130,34 +137,44 @@ runConversion Config{..} args = do
 
   case args of
     Left input -> do
-      withSystemTempFile "json2csv.json" $ \fp handle -> do
-        -- hSetEncoding stdin utf8
+      (_,fp,handle) <- openTempFile Nothing "json2csv.json"
+      -- hSetEncoding stdin utf8
+      liftIO $ do
         hSetEncoding handle utf8
         BL.hPutStr handle input
         hClose handle
-        continue [fp]
+      continue [fp]
     Right xs -> do
-      continue . concat =<< mapM immediateDescendents xs
+      -- not worth trying to stream this, it's metadata
+      continue . concat =<< liftIO (mapM immediateDescendents xs)
 
   where
-    continue :: [FilePath] -> IO [BL.ByteString]
+    continue :: MonadIO m => [FilePath] -> Q.ByteStream m () -- IO [BL.ByteString]
     continue filepaths = do
-      traceM . show $ ("filepaths"::Text, filepaths)
       -- this looks weird, but it lets us read the same file in lazily twice.
-      headers <- getHeaders <$> readJSONObjects justLines shouldExpand filepaths
+      -- we'll still have to read the whole thing, because headers could be added
+      -- on the last line, but it won't all be in memory.
+      (headers,allRows) <- liftIO $ do
+        headers <- getHeaders <$> readJSONObjects justLines shouldExpand filepaths
+        allRows <- readJSONObjects justLines shouldExpand filepaths
+        -- this should probably be a stream
+        pure (headers,allRows)
+      -- here we get a bit clever and write using the cassava-streaming package instead
+      -- of relying on the user not doing something silly like asking for the length then
+      -- mapping over a huge file.
+      --
+      -- technically we're still being a bit silly using a big lazy list internally,
+      -- but at least we've policed other people's behaviour.
+      SCSV.encode (Just $ SCSV.header $ fmap encodeUtf8 headers)
+        (forM_ allRows $ \r -> (SP.yield $ flattenValues headers r))
 
-      allRows <- readJSONObjects justLines shouldExpand filepaths
---      let headerRow = if printHeaders
---            then (BL.fromStrict $ encodeUtf8 $ T.intercalate "," headers <> "\n")
---            else ""
-
-      pure $ CSV.encode [headers]:
-        (map (CSV.encode . (\x -> [x]) . flattenValues headers) allRows )
+--      pure $ CSV.encode [headers]:
+--        (map (CSV.encode . (\x -> [x]) . flattenValues headers) allRows )
 
 
 
 readJSONObjects :: Traversable t =>
-                  Bool -> Bool -> t FilePath -> IO [[(T.Text, CVal)]]
+                  Bool -> Bool -> t FilePath -> IO [V.Vector (T.Text, CVal)]
 readJSONObjects justlines shouldExpand filepaths = do
   contents <- concatMap
              (if justlines
@@ -174,8 +191,10 @@ readJSONObjects justlines shouldExpand filepaths = do
         if shouldExpand
         then concatMap expand good'
         else good'
-  pure $ map (json2CSV defaults) good
+  pure $ map  (json2CSV defaults) good
 
+pmap :: (a->b) -> [a] -> [b]
+pmap = parMap rpar
 
 expand :: Value -> [Value]
 expand (Array o) = V.toList o
