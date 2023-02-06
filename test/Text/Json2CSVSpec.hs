@@ -81,4 +81,4 @@ spec = describe "json2csv" $ do
                 , printHeaders = True
                 , shouldExpand = False
                 }
-        runResourceT $ Q.writeFile "/tmp/output"  $ Q.fromChunks $ runConversionStreaming config ( map (base <>) files)
+        runResourceT $ Q.writeFile "/tmp/output" $ runConversionStreaming config ( map (base <>) files)

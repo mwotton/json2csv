@@ -10,9 +10,7 @@ module Text.Json2CSVFast where
 import Data.Foldable(toList)
 import Data.Text.Encoding(encodeUtf8)
 import           System.Directory
-import Control.Monad.Trans.Resource(runResourceT)
 import qualified Data.ByteString.Lazy.Char8 as BL
-import qualified Data.ByteString.Char8 as BS
 import           Data.Text           (Text)
 import qualified Data.Text           as T
 import qualified Data.Vector         as V
@@ -94,12 +92,14 @@ immediateDescendents fp = do
 -- Collect the streaming interface into a big lazy bytestring, throwing away
 -- any space safety.
 runConversion :: Config -> [FilePath] -> IO BL.ByteString
-runConversion c args = fmap BL.fromChunks $ runResourceT $ SP.toList_ $ runConversionStreaming c args
+runConversion c args = -- fmap BL.fromChunks $ runResourceT $ SP.toList_
+  Q.toLazy_
+  $ runConversionStreaming c args
 
 runConversionStreaming :: MonadIO m
   => Config
   -> [FilePath]
-  -> SP.Stream (SP.Of BS.ByteString) m ()
+  -> Q.ByteStream m ()
 runConversionStreaming Config{..} paths  = continue paths
   where
     -- I thought really hard about how to do this with streams but just failed.
@@ -108,7 +108,7 @@ runConversionStreaming Config{..} paths  = continue paths
     --
     -- if it were possible to rewind the stream and prefix the headers, we could do it, but I don't
     -- think that's even really available at the POSIX layer.
-    continue :: MonadIO m => [FilePath] -> SP.Stream (SP.Of BS.ByteString) m () -- IO [BL.ByteString]
+    continue :: MonadIO m => [FilePath] -> Q.ByteStream m () -- SP.Stream (SP.Of BS.ByteString) m () -- IO [BL.ByteString]
     continue filepaths = do
       let  generator :: MonadIO m => SP.Stream (SP.Of (V.Vector (T.Text,CVal))) m ()
            generator = readJSONObjects justLines shouldExpand filepaths
@@ -118,7 +118,7 @@ runConversionStreaming Config{..} paths  = continue paths
       -- reuse generator
       let go :: MonadIO m => SP.Stream (SP.Of Row) m ()
           go = SP.map (flattenValues headerTable) generator -- undefined -- _ -- SP.map (flattenValues headers) generator
-      Q.toChunks  $ SCSV.encode (Just $ SCSV.header $ fmap encodeUtf8 headers) go
+      SCSV.encode (Just $ SCSV.header $ fmap encodeUtf8 headers) $ go
 
 -- there might be a little more to squeeze out here by adopting a builder interface rather
 -- than naively appending Bytes values, but if the buffer is appreciably bigger than most
