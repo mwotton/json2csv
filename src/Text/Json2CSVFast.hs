@@ -4,7 +4,7 @@
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE NumericUnderscores #-}
-
+{-# LANGUAGE TupleSections #-}
 module Text.Json2CSVFast where
 
 import Data.Foldable(toList)
@@ -99,7 +99,7 @@ runConversion c args = -- fmap BL.fromChunks $ runResourceT $ SP.toList_
 runConversionStreaming :: MonadIO m
   => Config
   -> [FilePath]
-  -> Q.ByteStream m ()
+  -> Q.ByteStream m (SCSV.Header, Int)
 runConversionStreaming Config{..} paths  = continue paths
   where
     -- I thought really hard about how to do this with streams but just failed.
@@ -108,16 +108,18 @@ runConversionStreaming Config{..} paths  = continue paths
     --
     -- if it were possible to rewind the stream and prefix the headers, we could do it, but I don't
     -- think that's even really available at the POSIX layer.
-    continue :: MonadIO m => [FilePath] -> Q.ByteStream m () -- SP.Stream (SP.Of BS.ByteString) m () -- IO [BL.ByteString]
+    continue :: MonadIO m => [FilePath] -> Q.ByteStream m (SCSV.Header,Int)
     continue filepaths = do
-      let  generator :: MonadIO m => SP.Stream (SP.Of (V.Vector (T.Text,CVal))) m ()
+      let  generator :: MonadIO m => SP.Stream (SP.Of (V.Vector (T.Text,CVal))) m () -- (SCSV.Header,Integer)
            generator = readJSONObjects justLines shouldExpand filepaths
       headers :: [Text] <- HS.toList <$> SP.fold_ (\hs v -> foldr (\(k,_) h' -> HS.insert k h') hs v) mempty id generator
       let headerTable = (HM.fromList $ (`zip` [0..]) headers, V.replicate (length headers) (CStr ""))
 
       -- reuse generator
-      let go :: MonadIO m => SP.Stream (SP.Of Row) m ()
-          go = SP.map (flattenValues headerTable) generator -- undefined -- _ -- SP.map (flattenValues headers) generator
+      let go :: MonadIO m => SP.Stream (SP.Of Row) m (SCSV.Header,Int)
+          go = (V.fromList (map encodeUtf8 headers),) . SP.fst' <$>  SP.store SP.length (SP.map (flattenValues headerTable) generator)
+
+
       SCSV.encode (Just $ SCSV.header $ fmap encodeUtf8 headers) $ go
 
 -- there might be a little more to squeeze out here by adopting a builder interface rather
