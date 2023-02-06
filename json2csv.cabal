@@ -17,8 +17,8 @@ cabal-version:       >=1.10
 
 library
   hs-source-dirs: src
-  exposed-modules: Text.Json2CSV, MainEntry
-  ghc-options: -Wall -Werror
+  exposed-modules: Text.Json2CSV, Text.Json2CSV.Reference, MainEntry, Text.Json2CSVFast
+  ghc-options: -Wall
   -- other-modules:
   -- other-extensions:
   build-depends:       base >=4.7
@@ -36,23 +36,31 @@ library
                      , streaming-bytestring
                      , streaming
                      , parallel
-
-
+                     , json-syntax
+                     , byteslice
+                     , text-short
+                     , scientific-notation
+                     , transformers-base
+                     , streaming-concurrency
+                     , async
+                     , foldl
+                     , deepseq
   -- hs-source-dirs:
   default-language:    Haskell2010
 
 executable json2csv
   main-is: json2csv.hs
   hs-source-dirs: exec
-  ghc-options: -Wall -Werror
-  build-depends: base, json2csv
+  ghc-options: -Wall -Werror -O2
+  build-depends: base
+               , json2csv
 
 test-suite tests
   default-language:    Haskell2010
   hs-source-dirs: test
   main-is:       Spec.hs
   type: exitcode-stdio-1.0
-  ghc-options: -Wall -threaded -rtsopts -O2 -Werror -j2
+  ghc-options: -Wall -threaded -rtsopts -O2  -j2
   other-modules: Text.Json2CSVSpec
   build-depends: base
                , base-prelude
@@ -68,3 +76,10 @@ test-suite tests
                , vector
                , streaming-bytestring
                , resourcet
+               , json-syntax
+               , byteslice
+               , text-short
+               , scientific-notation
+               , transformers-base
+               , streaming
+               , unordered-containers

@@ -6,4 +6,4 @@ module Main where
 import qualified MainEntry
 
 main :: IO ()
-main = MainEntry.main
+main = MainEntry.mainEntry
