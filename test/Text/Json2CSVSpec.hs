@@ -56,11 +56,13 @@ spec = describe "json2csv" $ do
           , printHeaders = True
           , shouldExpand = False
           }
-    csv <- runConversion config ["./fixtures/sample.jl"]
+    csv <- runConversion config ["./fixtures/sample2.jl"]
     let decoded :: Vector [String] = either error id $ CSV.decode CSV.NoHeader csv
 
-    length decoded `shouldBe` 4 -- including header
-    decoded V.! 0 `shouldBe` ["Schedule","Job ID","Sub Category","Budget","State","Status","Description","PostedOriginal","Title","Parent Category","_type","Posted","Suburb"]
+    length decoded `shouldBe` 15986 -- including header
+    -- decoded V.! 0 `shouldBe` ["Schedule","Job ID","Sub Category","Budget","State","Status","Description","PostedOriginal","Title","Parent Category","_type","Posted","Suburb"]
+
+    decoded V.! 0 `shouldBe` ["Schedule", "Job ID", "Sub Category", "Budget", "State", "Url", "Status", "Description", "Title", "Parent Category", "_type", "Posted", "Suburb"]
     (`mapM_` decoded) $ \x ->
       length x `shouldBe` 13
 

@@ -141,7 +141,7 @@ fetchStringsFromFile True bufsize fp = do
         case Bytes.splitEnd1 nl newBytes of
           Just (front, back) -> do
             -- split, but with remnants added at the front
-            forM_ (Bytes.split nl $ buf <> front) SP.yield
+            forM_ (filter (not . Bytes.null) $ Bytes.split nl $ buf <> front) SP.yield
             go back
           Nothing -> do
             let newbuf = buf <> newBytes
